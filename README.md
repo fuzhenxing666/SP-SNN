@@ -50,110 +50,16 @@ $$u(x) \approx \sum_{j=1}^{n} w_j \phi_j(x) + \sum_{k=1}^{m} v_k \psi_k(x)$$
 ### 核心组件
 
 1.  **神经网络模型**
-    ```python
-    class Net(nn.Module):
-        def __init__(self, hidden_size=100, subspace_dim=100):
-            super(Net, self).__init__()
-            self.hidden = nn.Sequential(
-                nn.Linear(2, hidden_size), # 假设输入是 (x,y) 2维
-                nn.Tanh(),
-                nn.Linear(hidden_size, hidden_size),
-                nn.Tanh(),
-                nn.Linear(hidden_size, subspace_dim),
-                nn.Tanh()
-            )
-            self.output = nn.Linear(subspace_dim, 1, bias=False)
-            # 初始化输出层权重
-            with torch.no_grad():
-                self.output.weight.fill_(1.0)
-            self.output.weight.requires_grad = True
-
-        def forward(self, xy):
-            x = self.hidden(xy)
-            x = self.output(x)
-            return x
-
-        def get_hidden_layer_output(self, xy):
-            return self.hidden(xy)
-    ```
 
 2.  **神经网络训练**
-    ```python
-    def train_network(net, epsilon, f, device, num_epochs=500, early_stop_threshold=1e-3):
-        optimizer = torch.optim.Adam(net.hidden.parameters(), lr=0.001)
-        # 生成训练点
-        # 计算PDE残差和边界条件残差
-        # 更新网络参数
-        # ... (省略)
-        return xy_interior, xy_b0, xy_b1, xy_b2, xy_b3 # 训练/采样点
-    ```
-
+    
 3.  **边界层显式基函数**
-    ```python
-    def explicit_bases(xy, epsilon, num_explicit_bases):
-        x = xy[:, 0:1]
-        y = xy[:, 1:2]
-        if num_explicit_bases == 0:
-            return torch.empty(xy.shape[0], 0, dtype=torch.float64, device=xy.device)
-        # 示例: 对于边界层在 x=0 和 x=1 的情况
-        bases = [torch.exp(-x / epsilon) * torch.sin(torch.pi * y)] # 示例基函数
-        # ... (可添加更多基函数)
-        return torch.cat(bases[:num_explicit_bases], dim=1)
-    ```
 
 4.  **PDE算子计算**
-    ```python
-    def compute_pde_operator(net, xy, epsilon, explicit_bases_func, num_explicit_bases):
-        # 确保xy可求导
-        xy = xy.requires_grad_(True)
-
-        # 获取基函数
-        phi = net.get_hidden_layer_output(xy)
-        psi = explicit_bases_func(xy, epsilon, num_explicit_bases)
-
-        # 拼接基函数
-        basis = torch.cat([phi, psi], dim=1) if num_explicit_bases > 0 else phi
-
-        # 计算每个基函数上的PDE算子作用结果
-        L_basis_list = []
-        for j in range(basis.shape[1]):
-            basis_j = basis[:, j].unsqueeze(1)
-            # 计算导数
-            # ...
-            # 计算PDE算子作用结果 (L_basis_j)
-            # ... (具体PDE形式)
-            L_basis_list.append(L_basis_j) # L_basis_j 应为 (N,1)
-
-        # 拼接所有结果
-        L_basis = torch.cat(L_basis_list, dim=1)
-        return L_basis
-    ```
-
+   
 5.  **系统矩阵组装**
-    ```python
-    def assemble_matrix(net, explicit_bases_func, xy_interior, xy_b0, xy_b1, xy_b2, xy_b3, f, epsilon, num_explicit_bases):
-        # PDE部分
-        L_basis = compute_pde_operator(net, xy_interior, epsilon, explicit_bases_func, num_explicit_bases)
-        A_i = L_basis.detach().cpu().numpy()
-        f_i = f(xy_interior, epsilon).detach().cpu().numpy().flatten()
-
-        # 边界条件部分
-        # basis_b_all = ... (在边界点上计算所有基函数的值)
-        # u_b_all = ... (边界条件的值)
-        # ...
-
-        # 组装全局矩阵和向量
-        A = np.vstack([A_i, basis_b_all.detach().cpu().numpy()]) # 示例
-        f_vec = np.hstack([f_i, u_b_all]) # 示例
-        return A, f_vec
-    ```
 
 6.  **线性系统求解**
-    ```python
-    def solve_linear_system(A, f):
-        w, _, _, _ = lstsq(A, f)
-        return w
-    ```
 
 ## 案例示例
 
